@@ -14,12 +14,14 @@ install.packages("flextable")
 library(zoo)
 library(flextable)
 ```
+
 ##Question 1
+
 ```{r}
 #Step 1 reading in the covid data from the NY-times url
 library(tidyverse)
 url <- 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
-covid <- read_csv(url)
+covid <- read.csv(url)
 ```
 
 ##Question 2
@@ -27,7 +29,7 @@ covid <- read_csv(url)
 ```{r}
 #Step 2
 library(tidyverse); library(flextable)
-covid = read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
+covid = read.csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
 
 txt<-'2022-02-01'
 class(txt)
@@ -61,6 +63,7 @@ filter(Colorado,date==my.date)%>%
 ```
 
 ##Question 3
+
 ```{r}
 #step 1:Given the above URL, and guidelines on string concatenation and formatting, read in the population data and (1) create a five digit FIP variable and only keep columns that contain “NAME” or “2021” (remember the tidyselect option found with ?dplyr::select). Additionally, remove all state level rows (e.g. COUNTY FIP == “000”)
 pop_url <- 'https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/counties/totals/co-est2023-alldata.csv'
@@ -81,15 +84,13 @@ pop<-read.csv(pop_url)%>%
   select(fips,contains('NAME'),contains('2021'))
 
 #Step 2:Now, explore the data … what attributes does it have, what are the names of the columns? Do any match the COVID data we have? What are the dimensions… In a few sentences describe the data obtained after modification:
-range(pop$POPESTIMATE2021)
+names(pop)
+dim(pop)
+summary(pop)
+
 
 #Step 3:What is the range of populations seen in Colorado counties in 2021:
-safe<-pop%>%
-  inner_join(Colorado, by="fips")%>%
-  filter(between(date,my.date-13,my.date))%>%
-  group_by(county)%>%
-  summarize(lag=sum(new_cases)/(POPESTIMATE2021[1]/100000))%>%
-  ungroup()
+range(pop$POPESTIMATE2021)
 #Step 4:Join the population data to the Colorado COVID data and compute the per capita cumulative cases, per capita new cases, and per capita new deaths
 pop_2<-pop%>%
   rename(state=STNAME)
@@ -111,34 +112,175 @@ Colorado_pop%>%
 
 #Step 5:Generate (2) new tables. The first should show the 5 counties with the most cumulative cases per capita on 2021-01-01, and the second should show the 5 counties with the most NEW cases per capita on the same date. Your tables should have clear column names and descriptive captions.
 #part five
+filter(Colorado_pop,date==my.date)%>%
+  slice_max(cases,n=5)%>%
+  select(Date=date,County=county,Cases=)%>%
+  flextable()%>%
+  set_caption(caption="Most Cumulative Cases")
+
+filter(Colorado_pop,date==my.date)%>%
+  slice_max(cases,n=5)%>%
+  select(Date=date,County=county,Cases=new_cases)%>%
+  flextable()%>%
+  set_caption(caption="Most New Cases")
 ```
 
 ##Question 4
+
 ```{r}
+
+safe<-pop%>%
+  inner_join(Colorado, by="fips")%>%
+  filter(between(date,my.date-13,my.date))%>%
+  group_by(county)%>%
+  summarize(lag=sum(new_cases)/(POPESTIMATE2021[1]/100000))%>%
+  ungroup()
+
 safe%>%
   select(County=county, Cases=lag)%>%
   slice_max(Cases,n=5)%>%
   flextable()%>%
-  set_caption(caption="Cases per 100,000 in the last 24 days")
+  set_caption(caption="Cases per 100,000 peple in the last 14 days")
 ```
 
 ##Question 5
-```{r}
 
+```{r}
+#Given we are assuming it is February 1st, 2022. Your leadership has asked you to determine what percentage of deaths in each county were attributed to COVID last year (2021). You eagerly tell them that with the current Census data, you can do this!
+
+#From previous questions you should have a data.frame with daily COVID deaths in Colorado and the Census based, 2021 total deaths. For this question, you will find the ratio of total COVID deaths per county (2021) of all recorded deaths. In a plot of your choosing, visualize all counties where COVID deaths account for 20% or more of the annual death toll.
+
+tmp.date=as.Date("2022-02-01")
+lubridate::year(tmp.date)
+
+lubridate::yday(tmp.date)
+
+x<-Colorado%>%
+  mutate(year=lubridate::year(date))%>%
+  filter(year==2021)%>%
+  group_by(fips)%>%
+  summarize(deaths=sum(new_deaths, na.rm= TRUE))%>%
+  left_join(pop, by=c("fips"))%>%
+  mutate(death_ratio=100*(deaths/DEATHS2021))%>%
+  select(CTYNAME, deaths, DEATHS2021, death_ratio)%>%
+  filter(death_ratio>20)
+
+ggplot(x)+
+  geom_col(aes(x=death_ratio, y=CTYNAME))+
+  theme_light()
 ```
 
 ##Question 6
-```{r}
 
+```{r}
+#In this question, we are going to look at the story of 4 states and the impact scale can have on data interpretation. The states include: New York, Colorado, Alabama, and Ohio. Your task is to make a faceted bar plot showing the number of daily, new cases at the state level.
+
+#Step 1
+#First, we need to group/summarize our county level data to the state level, filter it to the four states of interest, and calculate the number of daily new cases (diff/lag) and the 7-day rolling mean.
+
+state_covid=covid%>%
+  group_by(date, state)%>%
+  summarise(cases=sum(cases))%>%
+  filter(state%in% c('New York', 'Ohio', 'Colorado', 'Alabama' ))%>%
+  group_by(state)%>%
+  mutate(newcases = cases-lag(cases), 
+roll=zoo::rollmean(newcases, k=7, align='right', fill=NA))%>%
+  ungroup()
+
+#Step 2
+#Using the modified data, make a facet plot of the daily new cases and the 7-day rolling mean. Your plot should use compelling geoms, labels, colors, and themes.
+library(zoo)
+ggplot(state_covid, aes(x=date))+
+  geom_col(aes(y=newcases), fill="darkblue", col=NA)+
+  geom_line(aes(y=roll), col="lightblue", size=1)+
+  theme_linedraw()+
+  facet_wrap(~state, nrow=2, scales="free_y")+
+  labs(title="Cummulative COVID-19 Cases",
+       x='Date', y="Case Count")
+
+#Step 3
+#The story of raw case counts can be misleading. To understand why, lets explore the cases per capita of each state. To do this, join the state COVID data to the population estimates and calculate the newcases/totalpopulation. Additionally, calculate the 7-day rolling mean of the new cases per capita counts. This is a tricky task and will take some thought, time, and modification to existing code (most likely)!
+
+pp=pop%>%
+  group_by(STNAME)%>%
+  summarize(state_pop=
+              sum(POPESTIMATE2021))%>%
+  inner_join(state_covid, by=c("STNAME"='state'))%>%
+  mutate(percap=newcases/state_pop)%>%
+  group_by(STNAME)%>%
+  mutate(roll=zoo::rollmean(percap, k=7, align='right', fill=NA))%>%
+  ungroup()
+
+#Step 4
+#Using the per capita data, plot the 7-day rolling averages overlying each other (one plot) with compelling labels, colors, and theme.
+
+ggplot(pp, aes(x=date))+
+  geom_line(aes(y=roll, col=STNAME), size=1)+
+  theme_linedraw()+
+  labs(title='Cummulative COVID-19 Cases', 
+       x='Date', y='Case Count')
+#Step 5
+#Briefly describe the influence scaling by population had on the analysis? Does it make some states look better? Some worse? How so?
 ```
 
 ##Question 7
+
 ```{r}
+#Step 1
+
+meta= read.csv('https://raw.githubusercontent.com/mikejohnson51/csu-ess-330/refs/heads/main/resources/county-centroids.csv')%>%
+  inner_join(covid)%>%
+  group_by(date)%>%
+  summarize(wmY_c=sum(LON*cases)/sum(cases),
+            wmX_c=sum(LAT*cases)/sum(cases),
+            cases=sum(cases))%>%
+  arrange(date)%>%
+  mutate(d=1:n())
+
+ggplot(meta)+
+  borders('state', fill="darkgray", colour='white')+
+  geom_point(aes(x=wmX_c, Y=emY_c, size=cases), color='forestgreen', alpha=.25)+ 
+  theme_linedraw()+
+  labs(color='Time', 
+       size='Cases', 
+       x="", y="", 
+       title'Weighted Center of COVID-19 Cases')+
+         theme(legend.position = 'none')
 
 ```
 
 ##Question 8
+
 ```{r}
+question8 = read.csv('https://raw.githubusercontent.com/mikejohnson51/csu-ess-330/refs/heads/main/resources/county-centroids.csv')%>%
+  inner_join(covid)%>%
+  group_by(date)%>%
+  summarize(Cases_WeightedMean_x=sum(LON*cases)/sum(cases),Cases_WeightedMean_y=sum(LAT*cases)/sum(cases),
+            cases=sum(cases),
+            Deaths_WeightedMean_x=sum(LON*deaths)/sum(deaths),
+            Deaths_WeightedMean_y=sum(LAT*deaths)/sum(deaths),
+            deaths=sum(deaths))%>%
+  arrange(date)%>%
+  mutate(d=1:n())
+
+ggplot(question8)+
+  borders('state', fill='darkgray', colour='white')+
+  geom_point(aes(x=Cases_WeightedMean_x, y=Cases_WeightedMean_y, size = cases),
+             color='forestgreen', alpha=0.25)+
+  labs(color='Month',
+       size='cases',
+       x='Longtitude', y='Latitude',
+       title='Weighted Center of COVID-19 Cases')+
+  theme_linedraw()
+
+ggplot(question8)+
+  borders('state', fill='darkgray', colour='white')+
+  geom_point(aes(x=Deaths_WeightedMean_x, y=Deaths_WeightedMean_y),
+             color='forestgreen', alpha=0.25)+
+  labs(color='Month',
+       size='deaths',
+       x='Longtitude', y='Latitude',
+       title='Weighted Center of COVID-19 Deaths')+
+  theme(legend.position='none')
 
 ```
-
