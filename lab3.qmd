@@ -1,0 +1,144 @@
+---
+title: "lab3"
+subtitle: ESS330
+author:
+  - name: ELeanor
+    email:
+format: html
+editor: visual
+---
+
+```{r}
+install.packages("zoo")
+install.packages("flextable")
+library(zoo)
+library(flextable)
+```
+##Question 1
+```{r}
+#Step 1 reading in the covid data from the NY-times url
+library(tidyverse)
+url <- 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
+covid <- read_csv(url)
+```
+
+##Question 2
+
+```{r}
+#Step 2
+library(tidyverse); library(flextable)
+covid = read_csv('https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv')
+
+txt<-'2022-02-01'
+class(txt)
+
+my.date<-as.Date(txt)
+class(my.date)
+
+#Step 3
+Colorado<-covid%>%
+  filter(state=='Colorado')%>%
+  group_by(county)%>%
+  arrange(date)%>%
+  mutate(new_cases=cases-lag(cases),
+        new_deaths=deaths-lag(deaths))%>%
+  ungroup()
+```
+
+```{r}
+#Step 4
+filter(Colorado,date==my.date)%>%
+  slice_max(cases, n=5)%>%
+  select(Date=date,County=county,Cases=cases)%>%
+  flextable()%>%
+  set_caption("Most Total Cases")
+
+filter(Colorado,date==my.date)%>%
+  slice_max(cases,n=5)%>%
+  select(Date=date,County=county,Cases=new_cases)%>%
+  flextable()%>%
+  set_caption(caption="Most New Cases")
+```
+
+##Question 3
+```{r}
+#step 1:Given the above URL, and guidelines on string concatenation and formatting, read in the population data and (1) create a five digit FIP variable and only keep columns that contain “NAME” or “2021” (remember the tidyselect option found with ?dplyr::select). Additionally, remove all state level rows (e.g. COUNTY FIP == “000”)
+pop_url <- 'https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/counties/totals/co-est2023-alldata.csv'
+
+number<-123
+(formatted_number<-sprintf('%06d',number))
+
+paste('Hello','World',sep="")
+paste(c('Hello','world'),collapse="-")
+
+paste('Hello','world',sep="")
+paste0('Hello','world')
+
+pop<-read.csv(pop_url)%>%
+  filter(COUNTY !=0)%>%
+  mutate(fips=paste0(sprintf("%02d",STATE),
+                sprintf("%03d",COUNTY)))%>%
+  select(fips,contains('NAME'),contains('2021'))
+
+#Step 2:Now, explore the data … what attributes does it have, what are the names of the columns? Do any match the COVID data we have? What are the dimensions… In a few sentences describe the data obtained after modification:
+range(pop$POPESTIMATE2021)
+
+#Step 3:What is the range of populations seen in Colorado counties in 2021:
+safe<-pop%>%
+  inner_join(Colorado, by="fips")%>%
+  filter(between(date,my.date-13,my.date))%>%
+  group_by(county)%>%
+  summarize(lag=sum(new_cases)/(POPESTIMATE2021[1]/100000))%>%
+  ungroup()
+#Step 4:Join the population data to the Colorado COVID data and compute the per capita cumulative cases, per capita new cases, and per capita new deaths
+pop_2<-pop%>%
+  rename(state=STNAME)
+Colorado_pop<-merge(pop_2,Colorado)
+
+Colorado_pop%>%
+  summarize(cummulative_cases=sum(cases))%>%
+  summarize(percap_cumcases=cummulative_cases/1000)
+
+Colorado_pop%>%
+  drop_na()%>%
+  summarize(cunew_cases=sum(new_cases))%>%
+  summarize(percap_cunew=cunew_cases/1000)
+
+Colorado_pop%>%
+  drop_na()%>%
+  summarize(cunew_deaths=sum(new_deaths))%>%
+  summarize(percap_cunew_deaths=cunew_deaths/1000)
+
+#Step 5:Generate (2) new tables. The first should show the 5 counties with the most cumulative cases per capita on 2021-01-01, and the second should show the 5 counties with the most NEW cases per capita on the same date. Your tables should have clear column names and descriptive captions.
+#part five
+```
+
+##Question 4
+```{r}
+safe%>%
+  select(County=county, Cases=lag)%>%
+  slice_max(Cases,n=5)%>%
+  flextable()%>%
+  set_caption(caption="Cases per 100,000 in the last 24 days")
+```
+
+##Question 5
+```{r}
+
+```
+
+##Question 6
+```{r}
+
+```
+
+##Question 7
+```{r}
+
+```
+
+##Question 8
+```{r}
+
+```
+
