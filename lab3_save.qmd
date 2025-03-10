@@ -9,7 +9,6 @@ editor: visual
 ---
 
 ```{r}
-options(repos = c(CRAN = "https://cran.rstudio.com/"))
 install.packages("zoo")
 install.packages("flextable")
 library(zoo)
@@ -95,8 +94,7 @@ range(pop$POPESTIMATE2021)
 #Step 4:Join the population data to the Colorado COVID data and compute the per capita cumulative cases, per capita new cases, and per capita new deaths
 pop_2<-pop%>%
   rename(state=STNAME)
-Colorado_pop<-pop_2%>%
-  inner_join(Colorado, by="state")
+Colorado_pop<-merge(pop_2,Colorado)
 
 Colorado_pop%>%
   summarize(cummulative_cases=sum(cases))%>%
@@ -112,61 +110,37 @@ Colorado_pop%>%
   summarize(cunew_deaths=sum(new_deaths))%>%
   summarize(percap_cunew_deaths=cunew_deaths/1000)
 
-Colorado_pop_aggregated <- Colorado_pop %>%
-  group_by(date, county) %>%
-  summarize(
-    cases = sum(cases, na.rm = TRUE),
-    new_cases = sum(new_cases, na.rm = TRUE)
-  ) %>%
-  ungroup()
-
 #Step 5:Generate (2) new tables. The first should show the 5 counties with the most cumulative cases per capita on 2021-01-01, and the second should show the 5 counties with the most NEW cases per capita on the same date. Your tables should have clear column names and descriptive captions.
-# Top 5 counties with most cumulative cases
-top_cumulative <- filter(Colorado_pop_aggregated, date == my.date) %>%
-  slice_max(cases, n = 5) %>%
-  select(Date = date, County = county, Cases = cases)
+#part five
+filter(Colorado_pop,date==my.date)%>%
+  slice_max(cases,n=5)%>%
+  select(Date=date,County=county,Cases=)%>%
+  flextable()%>%
+  set_caption(caption="Most Cumulative Cases")
 
-flextable(top_cumulative) %>%
-  set_caption(caption = "Most Cumulative Cases")
-
-# Top 5 counties with most new cases
-top_new_cases <- filter(Colorado_pop_aggregated, date == my.date) %>%
-  slice_max(new_cases, n = 5) %>%
-  select(Date = date, County = county, Cases = new_cases)
-
-flextable(top_new_cases) %>%
-  set_caption(caption = "Most New Cases")
-
+filter(Colorado_pop,date==my.date)%>%
+  slice_max(cases,n=5)%>%
+  select(Date=date,County=county,Cases=new_cases)%>%
+  flextable()%>%
+  set_caption(caption="Most New Cases")
 ```
 
 ##Question 4
 
 ```{r}
 
-# Convert fips in pop to integer (or Colorado to character, depending on your data)
-pop <- pop %>%
-  mutate(fips = as.integer(fips))
-
-# Convert date column to Date type
-Colorado <- Colorado %>%
-  mutate(date = as.Date(date))
-
-# Perform the join and calculations
-safe <- pop %>%
-  inner_join(Colorado, by = "fips") %>%
-  filter(between(date, my.date - 13, my.date)) %>%
-  group_by(county) %>%
-  summarize(lag = sum(new_cases) / (POPESTIMATE2021[1] / 100000)) %>%
+safe<-pop%>%
+  inner_join(Colorado, by="fips")%>%
+  filter(between(date,my.date-13,my.date))%>%
+  group_by(county)%>%
+  summarize(lag=sum(new_cases)/(POPESTIMATE2021[1]/100000))%>%
   ungroup()
 
-# Display the top 5 counties
-safe %>%
-  select(County = county, Cases = lag) %>%
-  slice_max(Cases, n = 5) %>%
-  flextable() %>%
-  set_caption(caption = "Cases per 100,000 people in the last 14 days")
-
-
+safe%>%
+  select(County=county, Cases=lag)%>%
+  slice_max(Cases,n=5)%>%
+  flextable()%>%
+  set_caption(caption="Cases per 100,000 peple in the last 14 days")
 ```
 
 ##Question 5
@@ -205,7 +179,7 @@ ggplot(x)+
 #First, we need to group/summarize our county level data to the state level, filter it to the four states of interest, and calculate the number of daily new cases (diff/lag) and the 7-day rolling mean.
 
 state_covid=covid%>%
-  group_by(date,state)%>%
+  group_by(date, state)%>%
   summarise(cases=sum(cases))%>%
   filter(state%in% c('New York', 'Ohio', 'Colorado', 'Alabama' ))%>%
   group_by(state)%>%
@@ -229,7 +203,8 @@ ggplot(state_covid, aes(x=date))+
 
 pp=pop%>%
   group_by(STNAME)%>%
-  summarize(state_pop= sum(POPESTIMATE2021))%>%
+  summarize(state_pop=
+              sum(POPESTIMATE2021))%>%
   inner_join(state_covid, by=c("STNAME"='state'))%>%
   mutate(percap=newcases/state_pop)%>%
   group_by(STNAME)%>%
@@ -264,12 +239,12 @@ meta= read.csv('https://raw.githubusercontent.com/mikejohnson51/csu-ess-330/refs
 
 ggplot(meta)+
   borders('state', fill="darkgray", colour='white')+
-  geom_point(aes(x=wmX_c, y=wmY_c, size=cases), color='forestgreen',alpha=.25)+ 
+  geom_point(aes(x=wmX_c, Y=emY_c, size=cases), color='forestgreen', alpha=.25)+ 
   theme_linedraw()+
   labs(color='Time', 
        size='Cases', 
-       x="Longitude", y="Latitude", 
-       title='Weighted Center of COVID-19 Cases')+
+       x="", y="", 
+       title'Weighted Center of COVID-19 Cases')+
          theme(legend.position = 'none')
 
 ```
