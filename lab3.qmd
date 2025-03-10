@@ -54,13 +54,13 @@ filter(Colorado,date==my.date)%>%
   slice_max(cases, n=5)%>%
   select(Date=date,County=county,Cases=cases)%>%
   flextable()%>%
-  set_caption("Most Total Cases")
+  add_header_lines("Most Total Cases")
 
 filter(Colorado,date==my.date)%>%
   slice_max(cases,n=5)%>%
   select(Date=date,County=county,Cases=new_cases)%>%
   flextable()%>%
-  set_caption(caption="Most New Cases")
+  add_header_lines("Most New Cases")
 ```
 
 ##Question 3
@@ -127,7 +127,7 @@ top_cumulative <- filter(Colorado_pop_aggregated, date == my.date) %>%
   select(Date = date, County = county, Cases = cases)
 
 flextable(top_cumulative) %>%
-  set_caption(caption = "Most Cumulative Cases")
+  add_header_lines("Most Cumulative Cases")
 
 # Top 5 counties with most new cases
 top_new_cases <- filter(Colorado_pop_aggregated, date == my.date) %>%
@@ -135,7 +135,7 @@ top_new_cases <- filter(Colorado_pop_aggregated, date == my.date) %>%
   select(Date = date, County = county, Cases = new_cases)
 
 flextable(top_new_cases) %>%
-  set_caption(caption = "Most New Cases")
+  add_header_lines("Most New Cases")
 
 ```
 
@@ -164,7 +164,7 @@ safe %>%
   select(County = county, Cases = lag) %>%
   slice_max(Cases, n = 5) %>%
   flextable() %>%
-  set_caption(caption = "Cases per 100,000 people in the last 14 days")
+  add_header_lines("Cases per 100,000 people in the last 14 days")
 
 
 ```
